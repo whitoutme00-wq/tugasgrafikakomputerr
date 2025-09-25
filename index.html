@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aplikasi Manajemen Karyawan & Tugas</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    h1, h2 { text-align: center; }
+    .dashboard { display: flex; gap: 20px; justify-content: center; margin-bottom: 30px; }
+    .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); flex: 1; text-align: center; cursor: pointer; transition: transform 0.2s; }
+    .card:hover { transform: scale(1.05); }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: white; }
+    th, td { padding: 10px; border: 1px solid #ddd; text-align: center; }
+    th { background: #007bff; color: white; }
+    button { padding: 5px 10px; margin: 2px; border: none; border-radius: 5px; cursor: pointer; }
+    .btn-add { background: #28a745; color: white; }
+    .btn-edit { background: #ffc107; color: black; }
+    .btn-delete { background: #dc3545; color: white; }
+    .popup { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+    .popup-content { background: white; padding: 20px; border-radius: 10px; width: 400px; }
+    .calendar { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-top: 20px; }
+    canvas { margin-top: 20px; background: white; border-radius: 10px; padding: 20px; }
+  </style>
+</head>
+<body>
+
+  <h1>Aplikasi Manajemen Karyawan & Tugas</h1>
+
+  <!-- Dashboard -->
+  <div class="dashboard">
+    <div class="card" onclick="document.getElementById('tabelKaryawan').scrollIntoView({behavior:'smooth'})">
+      <h2>Total Karyawan</h2><p id="totalKaryawan">0</p>
+    </div>
+    <div class="card" onclick="document.getElementById('tabelTugas').scrollIntoView({behavior:'smooth'})">
+      <h2>Total Tugas</h2><p id="totalTugas">0</p>
+    </div>
+    <div class="card" onclick="document.querySelector('.calendar').scrollIntoView({behavior:'smooth'})">
+      <h2>Tugas Prioritas Tinggi</h2><p id="tugasPrioritas">0</p>
+    </div>
+  </div>
+
+  <!-- Grafik -->
+  <h2>Grafik Statistik Tugas</h2>
+  <canvas id="chartPrioritas"></canvas>
+  <canvas id="chartStatus"></canvas>
+
+  <!-- Tabel Karyawan -->
+  <h2>Data Karyawan</h2>
+  <button class="btn-add" onclick="showForm('karyawan')">+ Tambah Karyawan</button>
+  <button onclick="resetData()">Reset Data</button>
+  <table id="tabelKaryawan">
+    <thead>
+      <tr>
+        <th>ID</th><th>Nama</th><th>Jabatan</th><th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Tabel Tugas -->
+  <h2>Data Tugas</h2>
+  <button class="btn-add" onclick="showForm('tugas')">+ Tambah Tugas</button>
+  <table id="tabelTugas">
+    <thead>
+      <tr>
+        <th>ID</th><th>Nama Tugas</th><th>Karyawan</th><th>Prioritas</th><th>Status</th><th>Tanggal</th><th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Kalender -->
+  <div class="calendar">
+    <h2>Kalender Tugas</h2>
+    <ul id="kalender"></ul>
+  </div>
+
+  <!-- Popup Form -->
+  <div class="popup" id="popupForm">
+    <div class="popup-content">
+      <h3 id="formTitle"></h3>
+      <form id="formInput"></form>
+      <button onclick="closeForm()">Tutup</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // Data awal karyawan
+    let karyawan = JSON.parse(localStorage.getItem('karyawan')) || [
+      { nama: "Budi Santoso", jabatan: "Manager" },
+      { nama: "Siti Aisyah", jabatan: "HRD" },
+      { nama: "Andi Pratama", jabatan: "Staff IT" },
+      { nama: "Dewi Lestari", jabatan: "Finance" },
+      { nama: "Rizky Ananda", jabatan: "Marketing" }
+    ];
+    let tugas = JSON.parse(localStorage.getItem('tugas')) || [];
+
+    function saveData() {
+      localStorage.setItem('karyawan', JSON.stringify(karyawan));
+      localStorage.setItem('tugas', JSON.stringify(tugas));
+      renderData();
+    }
+
+    function renderData() {
+      // Render Karyawan
+      let tbodyKaryawan = document.querySelector("#tabelKaryawan tbody");
+      tbodyKaryawan.innerHTML = "";
+      karyawan.forEach((k, i) => {
+        tbodyKaryawan.innerHTML += `
+          <tr>
+            <td>${i+1}</td><td>${k.nama}</td><td>${k.jabatan}</td>
+            <td>
+              <button class="btn-edit" onclick="editData('karyawan', ${i})">Edit</button>
+              <button class="btn-delete" onclick="deleteData('karyawan', ${i})">Hapus</button>
+            </td>
+          </tr>`;
+      });
+
+      // Render Tugas
+      let tbodyTugas = document.querySelector("#tabelTugas tbody");
+      tbodyTugas.innerHTML = "";
+      tugas.forEach((t, i) => {
+        tbodyTugas.innerHTML += `
+          <tr>
+            <td>${i+1}</td><td>${t.nama}</td><td>${t.karyawan}</td><td>${t.prioritas}</td><td>${t.status}</td><td>${t.tanggal}</td>
+            <td>
+              <button class="btn-edit" onclick="editData('tugas', ${i})">Edit</button>
+              <button class="btn-delete" onclick="deleteData('tugas', ${i})">Hapus</button>
+            </td>
+          </tr>`;
+      });
+
+      // Render Kalender
+      let kalender = document.querySelector("#kalender");
+      kalender.innerHTML = "";
+      tugas.forEach(t => {
+        let color = t.status === "Selesai" ? "green" :
+                    t.status === "Sedang Dikerjakan" ? "orange" : "red";
+        kalender.innerHTML += `<li style="color:${color}"><b>${t.tanggal}</b> - ${t.nama} (${t.karyawan})</li>`;
+      });
+
+      // Update Dashboard
+      document.getElementById("totalKaryawan").innerText = karyawan.length;
+      document.getElementById("totalTugas").innerText = tugas.length;
+      document.getElementById("tugasPrioritas").innerText = tugas.filter(t => t.prioritas === "Tinggi").length;
+
+      // Update Grafik
+      updateCharts();
+    }
+
+    function showForm(type, index = null) {
+      let popup = document.getElementById("popupForm");
+      let form = document.getElementById("formInput");
+      let title = document.getElementById("formTitle");
+      form.innerHTML = "";
+      popup.style.display = "flex";
+
+      if (type === "karyawan") {
+        title.innerText = index === null ? "Tambah Karyawan" : "Edit Karyawan";
+        form.innerHTML = `
+          <input type="text" id="nama" placeholder="Nama" value="${index !== null ? karyawan[index].nama : ""}" required><br><br>
+          <input type="text" id="jabatan" placeholder="Jabatan" value="${index !== null ? karyawan[index].jabatan : ""}" required><br><br>
+          <button onclick="saveForm('${type}', ${index}); return false;">Simpan</button>`;
+      } else {
+        title.innerText = index === null ? "Tambah Tugas" : "Edit Tugas";
+        form.innerHTML = `
+          <input type="text" id="nama" placeholder="Nama Tugas" value="${index !== null ? tugas[index].nama : ""}" required><br><br>
+          <select id="karyawanNama">
+            ${karyawan.map(k => `<option ${index !== null && tugas[index].karyawan === k.nama ? "selected" : ""}>${k.nama}</option>`).join("")}
+          </select><br><br>
+          <select id="prioritas">
+            <option ${index !== null && tugas[index].prioritas === "Rendah" ? "selected" : ""}>Rendah</option>
+            <option ${index !== null && tugas[index].prioritas === "Sedang" ? "selected" : ""}>Sedang</option>
+            <option ${index !== null && tugas[index].prioritas === "Tinggi" ? "selected" : ""}>Tinggi</option>
+          </select><br><br>
+          <select id="status">
+            <option ${index !== null && tugas[index].status === "Belum Selesai" ? "selected" : ""}>Belum Selesai</option>
+            <option ${index !== null && tugas[index].status === "Sedang Dikerjakan" ? "selected" : ""}>Sedang Dikerjakan</option>
+            <option ${index !== null && tugas[index].status === "Selesai" ? "selected" : ""}>Selesai</option>
+          </select><br><br>
+          <input type="date" id="tanggal" value="${index !== null ? tugas[index].tanggal : ""}" required><br><br>
+          <button onclick="saveForm('${type}', ${index}); return false;">Simpan</button>`;
+      }
+    }
+
+    function closeForm() {
+      document.getElementById("popupForm").style.display = "none";
+    }
+
+    function saveForm(type, index) {
+      if (type === "karyawan") {
+        let nama = document.getElementById("nama").value;
+        let jabatan = document.getElementById("jabatan").value;
+        if (!nama.trim() || !jabatan.trim()) { alert("Isi semua field!"); return; }
+        if (index === null) karyawan.push({ nama, jabatan });
+        else karyawan[index] = { nama, jabatan };
+      } else {
+        let nama = document.getElementById("nama").value;
+        let karyawanNama = document.getElementById("karyawanNama").value;
+        let prioritas = document.getElementById("prioritas").value;
+        let status = document.getElementById("status").value;
+        let tanggal = document.getElementById("tanggal").value;
+        if (!nama.trim() || !tanggal.trim()) { alert("Isi semua field!"); return; }
+        if (index === null) tugas.push({ nama, karyawan: karyawanNama, prioritas, status, tanggal });
+        else tugas[index] = { nama, karyawan: karyawanNama, prioritas, status, tanggal };
+      }
+      saveData();
+      closeForm();
+    }
+
+    function editData(type, index) {
+      showForm(type, index);
+    }
+
+    function deleteData(type, index) {
+      if (confirm("Yakin ingin menghapus data ini?")) {
+        if (type === "karyawan") karyawan.splice(index, 1);
+        else tugas.splice(index, 1);
+        saveData();
+      }
+    }
+
+    function resetData() {
+      if (confirm("Yakin ingin reset semua data?")) {
+        localStorage.clear();
+        location.reload();
+      }
+    }
+
+    // Grafik
+    let chartPrioritas, chartStatus;
+    function updateCharts() {
+      let ctx1 = document.getElementById("chartPrioritas").getContext("2d");
+      let ctx2 = document.getElementById("chartStatus").getContext("2d");
+
+      let countPrioritas = {
+        Rendah: tugas.filter(t => t.prioritas === "Rendah").length,
+        Sedang: tugas.filter(t => t.prioritas === "Sedang").length,
+        Tinggi: tugas.filter(t => t.prioritas === "Tinggi").length
+      };
+
+      let countStatus = {
+        "Belum Selesai": tugas.filter(t => t.status === "Belum Selesai").length,
+        "Sedang Dikerjakan": tugas.filter(t => t.status === "Sedang Dikerjakan").length,
+        "Selesai": tugas.filter(t => t.status === "Selesai").length
+      };
+
+      if (chartPrioritas) chartPrioritas.destroy();
+      if (chartStatus) chartStatus.destroy();
+
+      chartPrioritas = new Chart(ctx1, {
+        type: "pie",
+        data: {
+          labels: Object.keys(countPrioritas),
+          datasets: [{
+            data: Object.values(countPrioritas),
+            backgroundColor: ["#28a745", "#ffc107", "#dc3545"]
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+      });
+
+      chartStatus = new Chart(ctx2, {
+        type: "bar",
+        data: {
+          labels: Object.keys(countStatus),
+          datasets: [{
+            label: "Jumlah",
+            data: Object.values(countStatus),
+            backgroundColor: ["#007bff", "#ffc107", "#28a745"]
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+    }
+
+    renderData();
+  </script>
+</body>
+</html>
